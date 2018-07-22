@@ -1,10 +1,9 @@
 -- Создание БД
   CREATE DATABASE store;
 
--- Создание таблиц:  
+-- Создание таблиц:
   -- Товары
-    CREATE TABLE products
-    (
+    CREATE TABLE products (
       id SERIAL PRIMARY KEY,
       vendor_code CHAR(11) UNIQUE CHECK (length(vendor_code) = 11),
       name VARCHAR(100) CHECK (length(name) > 0),
@@ -27,7 +26,17 @@
   -- Бренды
     CREATE TABLE brands (
       id SERIAL PRIMARY KEY,
-      name VARCHAR(100)  CHECK (length(name) > 0)
+      name VARCHAR(100) CHECK (length(name) > 0)
+    );
+
+  -- Пользователи
+    CREATE TABLE users (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) CHECK (length(name) > 0) NOT NULL,
+      surname VARCHAR(100) NULL,
+      patronymic VARCHAR(100) NULL,
+      phone VARCHAR(11) NOT NULL,
+      email VARCHAR(100) NULL
     );
 
 -- Связи:
