@@ -5,7 +5,7 @@
   -- Товары
     CREATE TABLE products
     (
-      id SERIAL PRIMARY KEY NOT NULL,
+      id SERIAL PRIMARY KEY,
       vendor_code CHAR(11) UNIQUE CHECK (length(vendor_code) = 11),
       name VARCHAR(100) CHECK (length(name) > 0),
       price INTEGER CHECK (price > 0),
@@ -16,6 +16,18 @@
       properties jsonb NULL,
       cat_id INTEGER[] NULL,
       brand_id INTEGER NULL
+    );
+
+  -- Категории
+    CREATE TABLE categories (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) CHECK (length(name) > 0)
+    );
+
+  -- Бренды
+    CREATE TABLE brands (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100)  CHECK (length(name) > 0)
     );
 
 -- Связи:
