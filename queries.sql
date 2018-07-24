@@ -32,6 +32,8 @@
   -- Пользователи
     CREATE TABLE users (
       id SERIAL PRIMARY KEY,
+      login VARCHAR(100) NOT NULL, -- логин
+      password_hash VARCHAR(1000) NOT NULL, -- хеш пароля
       name VARCHAR(100) NOT NULL CHECK (length(name) > 0), -- Имя
       surname VARCHAR(100) NULL, -- Фамилия
       patronymic VARCHAR(100) NULL, -- Отчество
