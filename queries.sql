@@ -10,7 +10,7 @@
       cost NUMERIC(15, 2) NOT NULL CHECK (cost > 0),
       picture VARCHAR(500) NULL,
       admission_at DATE NOT NULL,
-      in_stock INTEGER CHECK (in_stock > 0),
+      in_stock INTEGER CHECK (in_stock >= 0),
       description TEXT NULL,
       properties jsonb NULL,
       cat_id INTEGER[] NULL,
@@ -45,7 +45,6 @@
       user_id INTEGER NOT NULL, -- Пользователь
       date_at DATE NOT NULL, -- Дата заказа
       shipping_address TEXT NOT NULL, -- Адрес доставки
-      total_cost NUMERIC(15, 2) NOT NULL CHECK (total_cost > 0) -- Общая стоимость заказа
     );
 
   -- Состав заказа
@@ -70,3 +69,17 @@
     REFERENCES users(id)
     ON UPDATE CASCADE
     ON DELETE RESTRICT; -- Если у пользователя есть заказ то мы не сможем его удалить
+
+  -- Заказы со списком заказов
+    ALTER TABLE order_items
+    ADD FOREIGN KEY (order_id)
+    REFERENCES orders(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
+  -- Продукты со списком заказов
+    ALTER TABLE order_items
+    ADD FOREIGN KEY (product_id)
+    REFERENCES products(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT; 
