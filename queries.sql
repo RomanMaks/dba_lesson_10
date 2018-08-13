@@ -38,7 +38,8 @@
       surname VARCHAR(100) NULL, -- Фамилия
       patronymic VARCHAR(100) NULL, -- Отчество
       phone VARCHAR(11) NOT NULL, -- Телефон
-      email VARCHAR(100) NULL -- Email адрес
+      email VARCHAR(100) NULL, -- Email адрес
+      UNIQUE (password_hash, name, phone) -- Обязательные поля
     );
 
   -- Заказы
@@ -46,7 +47,7 @@
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL, -- Пользователь
       date_at DATE NOT NULL, -- Дата заказа
-      shipping_address TEXT NOT NULL, -- Адрес доставки
+      shipping_address TEXT NOT NULL -- Адрес доставки
     );
 
   -- Состав заказа
