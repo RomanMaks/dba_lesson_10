@@ -5,16 +5,16 @@
   -- Товары
     CREATE TABLE products (
       id SERIAL PRIMARY KEY,
-      vendor_code CHAR(11) UNIQUE CHECK (length(vendor_code) = 11),
-      name VARCHAR(100) CHECK (length(name) > 0),
-      cost NUMERIC(15, 2) NOT NULL CHECK (cost > 0),
-      picture VARCHAR(500) NULL,
-      admission_at DATE NOT NULL,
-      in_stock INTEGER CHECK (in_stock >= 0),
-      description TEXT NULL,
-      properties jsonb NULL,
-      cat_id INTEGER[] NULL,
-      brand_id INTEGER NULL
+      vendor_code CHAR(11) UNIQUE CHECK (length(vendor_code) = 11), -- артикул товара
+      name VARCHAR(100) CHECK (length(name) > 0), -- наименование
+      cost NUMERIC(15, 2) NOT NULL CHECK (cost > 0), -- стоимость
+      picture VARCHAR(500) NULL, -- ссылка на изображение товара
+      admission_at DATE NOT NULL, -- Добавлен
+      in_stock INTEGER CHECK (in_stock >= 0), -- товара на складе
+      description TEXT NULL, -- описание
+      properties jsonb NULL, -- характеристики
+      cat_id INTEGER[] NULL, -- категории
+      brand_id INTEGER NULL  -- бренд
     );
 
   -- Категории
@@ -85,4 +85,8 @@
     ADD FOREIGN KEY (product_id)
     REFERENCES products(id)
     ON UPDATE CASCADE
-    ON DELETE RESTRICT; 
+    ON DELETE RESTRICT;
+
+-- Представления:
+
+-- Триггеры:
