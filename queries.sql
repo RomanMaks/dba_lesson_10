@@ -1,6 +1,10 @@
 -- Создание БД
   CREATE DATABASE store;
 
+-- Типы:
+  -- Прошедшие события
+    CREATE TYPE happened AS ENUM ('create', 'price', 'delete');
+
 -- Создание таблиц:
   -- Товары
     CREATE TABLE products (
@@ -15,6 +19,16 @@
       properties jsonb NULL, -- характеристики
       cat_id INTEGER[] NULL, -- категории
       brand_id INTEGER NULL  -- бренд
+    );
+
+  -- Прошедшие события
+    CREATE TABLE happened_events (
+      id SERIAL PRIMARY KEY NOT NULL,
+      product_id INTEGER NOT NULL,
+      event happened NOT NULL,
+      old_price NUMERIC(15, 2),
+      new_price NUMERIC(15, 2),
+      happened_at TIMESTAMP NOT NULL
     );
 
   -- Категории
@@ -88,5 +102,12 @@
     ON DELETE RESTRICT;
 
 -- Представления:
+  -- Новые товары (сортировка от более новых к старым)
+    CREATE VIEW new_products AS
+    SELECT products.*
+    FROM happened_events
+      INNER JOIN products ON happened_events.product_id = products.id
+    WHERE event = 'create'
+    ORDER BY happened_events.happened_at DESC 
 
 -- Триггеры:
