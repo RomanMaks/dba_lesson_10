@@ -3,7 +3,7 @@
 
 -- Типы:
   -- Прошедшие события
-    CREATE TYPE happened AS ENUM ('create', 'price', 'delete');
+    CREATE TYPE events AS ENUM ('create', 'price', 'delete');
 
 -- Создание таблиц:
   -- Товары
@@ -24,11 +24,11 @@
   -- Прошедшие события
     CREATE TABLE happened_events (
       id SERIAL PRIMARY KEY NOT NULL,
-      product_id INTEGER NOT NULL,
-      event happened NOT NULL,
-      old_price NUMERIC(15, 2),
-      new_price NUMERIC(15, 2),
-      happened_at TIMESTAMP NOT NULL
+      product_id INTEGER NOT NULL, -- товар
+      event events NOT NULL, -- событие
+      old_cost NUMERIC(15, 2), -- старая стоимость
+      new_cost NUMERIC(15, 2), -- новая стоимость
+      happened_at TIMESTAMP NOT NULL -- произошло в
     );
 
   -- Категории
@@ -111,3 +111,28 @@
     ORDER BY happened_events.happened_at DESC 
 
 -- Триггеры:
+  CREATE OR REPLACE FUNCTION process_products_audit() RETURNS TRIGGER AS $products_audit$
+    BEGIN
+      -- Удаление товара (delete)
+      IF (TG_OP = 'DELETE') THEN
+        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+        VALUES(OLD.id, 'delete', OLD.cost, null, CURRENT_TIMESTAMP);
+        RETURN OLD;
+      -- Изменение цены (price)
+      ELSIF ((TG_OP = 'UPDATE') AND (OLD.cost != NEW.cost)) THEN
+        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+        VALUES(OLD.id, 'price', OLD.cost, NEW.cost, CURRENT_TIMESTAMP);
+        RETURN NEW;
+      -- Cоздание нового (create)
+      ELSIF (TG_OP = 'INSERT') THEN
+        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+        VALUES(NEW.id, 'create', null, NEW.cost, CURRENT_TIMESTAMP);
+        RETURN NEW;
+      END IF;
+      RETURN NULL; -- возвращаемое значение для триггера AFTER не имеет значения
+    END;
+  $products_audit$ LANGUAGE plpgsql;
+
+  CREATE TRIGGER products_audit
+  AFTER INSERT OR UPDATE OR DELETE ON products
+    FOR EACH ROW EXECUTE PROCEDURE process_products_audit();
