@@ -111,28 +111,49 @@
     ORDER BY happened_events.happened_at DESC 
 
 -- Триггеры:
-  CREATE OR REPLACE FUNCTION process_products_audit() RETURNS TRIGGER AS $products_audit$
-    BEGIN
-      -- Удаление товара (delete)
-      IF (TG_OP = 'DELETE') THEN
-        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
-        VALUES(OLD.id, 'delete', OLD.cost, null, CURRENT_TIMESTAMP);
-        RETURN OLD;
-      -- Изменение цены (price)
-      ELSIF ((TG_OP = 'UPDATE') AND (OLD.cost != NEW.cost)) THEN
-        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
-        VALUES(OLD.id, 'price', OLD.cost, NEW.cost, CURRENT_TIMESTAMP);
-        RETURN NEW;
-      -- Cоздание нового (create)
-      ELSIF (TG_OP = 'INSERT') THEN
-        INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
-        VALUES(NEW.id, 'create', null, NEW.cost, CURRENT_TIMESTAMP);
-        RETURN NEW;
-      END IF;
-      RETURN NULL; -- возвращаемое значение для триггера AFTER не имеет значения
-    END;
-  $products_audit$ LANGUAGE plpgsql;
+  -- Удаление товара, изменение цены, создание нового
+    CREATE OR REPLACE FUNCTION process_products_audit() RETURNS TRIGGER AS $products_audit$
+      BEGIN
+        IF (TG_OP = 'DELETE') THEN
+          INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+          VALUES(OLD.id, 'delete', OLD.cost, null, CURRENT_TIMESTAMP);
+          RETURN OLD;
+        ELSIF ((TG_OP = 'UPDATE') AND (OLD.cost != NEW.cost)) THEN
+          INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+          VALUES(OLD.id, 'price', OLD.cost, NEW.cost, CURRENT_TIMESTAMP);
+          RETURN NEW;
+        ELSIF (TG_OP = 'INSERT') THEN
+          INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
+          VALUES(NEW.id, 'create', null, NEW.cost, CURRENT_TIMESTAMP);
+          RETURN NEW;
+        END IF;
+        RETURN NULL; -- возвращаемое значение для триггера AFTER не имеет значения
+      END;
+    $products_audit$ LANGUAGE plpgsql;
 
-  CREATE TRIGGER products_audit
-  AFTER INSERT OR UPDATE OR DELETE ON products
-    FOR EACH ROW EXECUTE PROCEDURE process_products_audit();
+    CREATE TRIGGER products_audit
+    AFTER INSERT OR UPDATE OR DELETE ON products
+      FOR EACH ROW EXECUTE PROCEDURE process_products_audit();
+
+  -- Управлять наличием товаров на складе
+    CREATE OR REPLACE FUNCTION track_quantity_in_stock_audit() RETURNS TRIGGER AS $track_quantity_in_stock$
+      BEGIN
+        IF (TG_OP = 'DELETE') THEN
+          UPDATE products
+          SET in_stock = in_stock + OLD.quantity
+          WHERE id = OLD.product_id;
+          RETURN OLD;
+        ELSEIF (TG_OP = 'INSERT') THEN
+          UPDATE products
+          SET in_stock = in_stock - NEW.quantity
+          WHERE id = NEW.product_id;
+          RETURN NEW;
+        END IF;
+    
+        RETURN NULL;
+      END;
+    $track_quantity_in_stock$ LANGUAGE plpgsql;
+    
+    CREATE TRIGGER track_quantity_in_stock
+    AFTER INSERT OR DELETE ON order_items
+      FOR EACH ROW EXECUTE PROCEDURE track_quantity_in_stock_audit();
