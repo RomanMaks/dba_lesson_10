@@ -21,6 +21,13 @@
       brand_id INTEGER NULL  -- бренд
     );
 
+  -- Поиск по товарам
+    CREATE TABLE search_by_products (
+      product_id INTEGER NOT NULL UNIQUE,
+      lexeme_name tsvector,
+      lexeme_description tsvector
+    );
+
   -- Прошедшие события
     CREATE TABLE happened_events (
       id SERIAL PRIMARY KEY NOT NULL,
@@ -112,7 +119,7 @@
 
 -- Триггеры:
   -- Удаление товара, изменение цены, создание нового
-    CREATE OR REPLACE FUNCTION process_products_audit() RETURNS TRIGGER AS $products_audit$
+    CREATE OR REPLACE FUNCTION process_products_audit() RETURNS TRIGGER AS $$
       BEGIN
         IF (TG_OP = 'DELETE') THEN
           INSERT INTO happened_events(product_id, event, old_cost, new_cost, happened_at)
@@ -127,22 +134,28 @@
           VALUES(NEW.id, 'create', null, NEW.cost, CURRENT_TIMESTAMP);
           RETURN NEW;
         END IF;
+
         RETURN NULL; -- возвращаемое значение для триггера AFTER не имеет значения
       END;
-    $products_audit$ LANGUAGE plpgsql;
+    $$ LANGUAGE plpgsql;
 
     CREATE TRIGGER products_audit
     AFTER INSERT OR UPDATE OR DELETE ON products
       FOR EACH ROW EXECUTE PROCEDURE process_products_audit();
 
   -- Управлять наличием товаров на складе
-    CREATE OR REPLACE FUNCTION track_quantity_in_stock_audit() RETURNS TRIGGER AS $track_quantity_in_stock$
+    CREATE OR REPLACE FUNCTION track_quantity_in_stock_audit() RETURNS TRIGGER AS $$
       BEGIN
         IF (TG_OP = 'DELETE') THEN
           UPDATE products
           SET in_stock = in_stock + OLD.quantity
           WHERE id = OLD.product_id;
           RETURN OLD;
+        ELSIF (TG_OP = 'UPDATE') THEN
+          UPDATE products
+          SET in_stock = in_stock + NEW.quantity
+          WHERE id = NEW.product_id;
+          RETURN NEW;
         ELSEIF (TG_OP = 'INSERT') THEN
           UPDATE products
           SET in_stock = in_stock - NEW.quantity
@@ -152,8 +165,33 @@
     
         RETURN NULL;
       END;
-    $track_quantity_in_stock$ LANGUAGE plpgsql;
+    $$ LANGUAGE plpgsql;
     
     CREATE TRIGGER track_quantity_in_stock
-    AFTER INSERT OR DELETE ON order_items
+    AFTER INSERT OR UPDATE OR DELETE ON order_items
       FOR EACH ROW EXECUTE PROCEDURE track_quantity_in_stock_audit();
+
+  -- Действия с лексемами
+    CREATE OR REPLACE FUNCTION procedure_actions_with_lexemes() RETURNS TRIGGER AS $$
+      BEGIN
+        IF (TG_OP = 'DELETE') THEN
+          DELETE FROM search_by_products WHERE product_id = OLD.id;
+          RETURN OLD;
+        ELSIF ((TG_OP = 'UPDATE') AND ((OLD.name != NEW.name) OR (OLD.description != NEW.description))) THEN      
+          UPDATE search_by_products 
+          SET lexeme_name = to_tsvector(NEW.name), lexeme_description = to_tsvector(NEW.description)
+          WHERE product_id = NEW.id;      
+          RETURN NEW;
+        ELSIF (TG_OP = 'INSERT') THEN
+          INSERT INTO search_by_products(product_id, lexeme_name, lexeme_description)
+          VALUES(NEW.id, to_tsvector(NEW.name), to_tsvector(NEW.description));
+          RETURN NEW;
+        END IF;
+    
+        RETURN NULL; -- возвращаемое значение для триггера AFTER не имеет значения
+      END;
+    $$ LANGUAGE plpgsql;
+    
+    CREATE TRIGGER actions_with_lexemes
+    AFTER INSERT OR UPDATE OR DELETE ON products
+      FOR EACH ROW EXECUTE PROCEDURE procedure_actions_with_lexemes();
