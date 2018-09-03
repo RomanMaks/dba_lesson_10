@@ -108,6 +108,13 @@
     ON UPDATE CASCADE
     ON DELETE RESTRICT;
 
+  -- Продукты с поиском
+    ALTER TABLE search_by_products
+    ADD FOREIGN KEY (product_id)
+    REFERENCES products(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
 -- Представления:
   -- Новые товары (сортировка от более новых к старым)
     CREATE VIEW new_products AS
@@ -174,10 +181,7 @@
   -- Действия с лексемами
     CREATE OR REPLACE FUNCTION procedure_actions_with_lexemes() RETURNS TRIGGER AS $$
       BEGIN
-        IF (TG_OP = 'DELETE') THEN
-          DELETE FROM search_by_products WHERE product_id = OLD.id;
-          RETURN OLD;
-        ELSIF ((TG_OP = 'UPDATE') AND ((OLD.name != NEW.name) OR (OLD.description != NEW.description))) THEN      
+        IF ((TG_OP = 'UPDATE') AND ((OLD.name != NEW.name) OR (OLD.description != NEW.description))) THEN      
           UPDATE search_by_products 
           SET lexeme_name = to_tsvector(NEW.name), lexeme_description = to_tsvector(NEW.description)
           WHERE product_id = NEW.id;      
@@ -193,5 +197,39 @@
     $$ LANGUAGE plpgsql;
     
     CREATE TRIGGER actions_with_lexemes
-    AFTER INSERT OR UPDATE OR DELETE ON products
+    AFTER INSERT OR UPDATE ON products
       FOR EACH ROW EXECUTE PROCEDURE procedure_actions_with_lexemes();
+
+-- Индексы:
+  -- Индекс GIN для полнотекстового поиска
+    CREATE INDEX index_search_by_products
+    ON search_by_products
+    USING gin
+    (
+      (
+        setweight(lexeme_name, 'A') ||
+        setweight(coalesce(lexeme_description, ''), 'B')
+      )
+    )
+
+-- Запросы:
+  -- Поиск по товарам
+    SELECT p.*
+    FROM search_by_products
+      INNER JOIN products p on search_by_products.product_id = p.id
+    WHERE (
+      setweight(lexeme_name, 'A') ||
+      setweight(coalesce(lexeme_description, ''), 'B')
+    ) @@ plainto_tsquery('russian', 'с пуговицами');
+
+  -- Выбрать все заказы за сегодня
+    SELECT *
+    FROM orders
+    WHERE date_at >= current_date
+
+  -- Посмотреть все заказы у конкретного пользователя
+    SELECT products.*, order_items.quantity
+    FROM orders
+      INNER JOIN order_items ON orders.id = order_items.order_id
+      INNER JOIN products ON order_items.product_id = products.id
+    WHERE user_id = 2
